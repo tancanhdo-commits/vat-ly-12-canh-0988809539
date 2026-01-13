@@ -1,23 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export async function POST(req: NextRequest) {
+  try {
+    const { unit, lesson } = await req.json();
+
+    const systemPrompt = `
+You are an expert Vietnamese high school Physics teacher.
+You master the Vietnamese General Education Curriculum 2018 and the National High School Exam orientation.
+You create accurate, structured, exam-oriented Physics 12 content.
+All responses must be in Vietnamese.
+Always prioritize scientific correctness, clarity, and pedagogical value.
+`;
+
+    const userPrompt = `
 Create a Physics 12 lesson aligned with Vietnamese knowledge and skills standards.
 
 Subject: Physics
 Grade: 12
-Unit (Chapter): {{unit}}
-Lesson: {{lesson}}
+Unit (Chapter): ${unit}
+Lesson: ${lesson}
 
-Requirements:
-- Follow Vietnamese high school Physics 12 curriculum
-- Emphasize core knowledge, skills, and exam-oriented thinking
-- Include worked examples with clear step-by-step solutions
-
-Output STRICTLY in JSON format with the following structure:
+Output STRICTLY in JSON format:
 
 {
   "metadata": {
     "subject": "Vật lí",
     "grade": "12",
-    "unit": "{{unit}}",
-    "lesson": "{{lesson}}",
+    "unit": "${unit}",
+    "lesson": "${lesson}",
     "orientation": "Chuẩn kiến thức – kĩ năng & luyện thi THPT"
   },
   "slides": [
@@ -26,80 +41,64 @@ Output STRICTLY in JSON format with the following structure:
       "title": "Kiến thức trọng tâm",
       "content": [
         {
-          "concept": "Tên khái niệm",
-          "definition": "Định nghĩa ngắn gọn, chính xác",
-          "formula": "Công thức chuẩn",
-          "units": "Đơn vị",
-          "note": "Lưu ý thường gặp trong bài thi"
+          "concept": "",
+          "definition": "",
+          "formula": "",
+          "units": "",
+          "note": ""
         }
       ]
     },
     {
       "slide_type": "exam_skills",
       "title": "Kĩ năng giải bài tập",
-      "content": [
-        "Nhận dạng dạng bài",
-        "Công thức cần áp dụng",
-        "Sai lầm học sinh hay mắc"
-      ]
+      "content": []
     },
     {
       "slide_type": "worked_example",
-      "title": "Bài tập thực chiến 1",
+      "title": "Bài tập thực chiến",
       "content": {
-        "question": "Đề bài dạng thi THPT, có số liệu cụ thể",
-        "analysis": "Phân tích hiện tượng vật lí và hướng giải",
-        "solution_steps": [
-          "Bước 1: Xác định đại lượng đã cho và cần tìm",
-          "Bước 2: Viết công thức áp dụng",
-          "Bước 3: Thay số và tính toán",
-          "Bước 4: Kết luận"
-        ],
-        "final_answer": "Đáp án cuối cùng, đúng đơn vị"
-      }
-    },
-    {
-      "slide_type": "worked_example",
-      "title": "Bài tập thực chiến 2",
-      "content": {
-        "question": "Bài toán mức vận dụng hoặc vận dụng cao",
-        "analysis": "Nhận xét mấu chốt của bài toán",
-        "solution_steps": [
-          "Lập luận vật lí",
-          "Biến đổi công thức",
-          "Tính toán"
-        ],
-        "final_answer": "Đáp án"
+        "question": "",
+        "analysis": "",
+        "solution_steps": [],
+        "final_answer": ""
       }
     },
     {
       "slide_type": "practice",
       "title": "Bài tập tự luyện",
-      "content": [
-        {
-          "level": "Thông hiểu",
-          "question": "Câu hỏi hoặc bài toán"
-        },
-        {
-          "level": "Vận dụng",
-          "question": "Câu hỏi hoặc bài toán"
-        }
-      ]
+      "content": []
     },
     {
       "slide_type": "summary",
       "title": "Tổng kết – ghi nhớ",
-      "content": [
-        "Công thức bắt buộc nhớ",
-        "Dạng bài trọng tâm trong đề thi"
-      ]
+      "content": []
     }
   ]
 }
 
 Rules:
 - Output ONLY valid JSON
-- No markdown, no emojis, no explanations outside JSON
-- All Physics content must be correct and exam-oriented
-- Calculations must be logically consistent
-- Suitable for direct rendering into Canva slides
+- No markdown, no emojis
+- Physics must be correct and exam-oriented
+`;
+
+    const completion = await client.chat.completions.create({
+      model: "gpt-4.1-mini",
+      temperature: 0.3,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
+
+    const content = completion.choices[0].message.content;
+
+    return NextResponse.json(JSON.parse(content as string));
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: "Failed to generate lesson", details: error.message },
+      { status: 500 }
+    );
+  }
+}
